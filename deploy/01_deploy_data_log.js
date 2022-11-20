@@ -44,9 +44,15 @@ module.exports = async ({ deployments }) => {
     console.log("Wallet Ethereum Address:", deployer.address)
     console.log("Wallet f4Address: ", f4Address)
 
-    await deploy("DealClient", {
+    await deploy("Datalog", {
         from: deployer.address,
-        args: [],
+        args: [
+            [
+                "0x8B3cd113C919272969b211a935c5d2B6410dB235",
+                "0x4b2b0D5eE2857fF41B40e3820cDfAc8A9cA60d9f",
+            ],
+            1,
+        ],
         // since it's difficult to estimate the gas before f4 address is launched, it's safer to manually set
         // a large gasLimit. This should be addressed in the following releases.
         // since Ethereum's legacy transaction format is not supported on FVM, we need to specify
@@ -56,5 +62,4 @@ module.exports = async ({ deployments }) => {
     })
 }
 
-//module.exports.tags = ["SimpleCoin", "MinerAPI", "MarketAPI"];
-module.exports.tags = ["SimpleCoin", "MinerAPI", "MarketAPI"]
+module.exports.tags = ["Datalog"]

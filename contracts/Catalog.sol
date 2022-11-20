@@ -1,35 +1,30 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-contract MultiSigWallet {
-    /* No events yet in FEVM
-    event Deposit(address indexed sender, uint amount, uint balance);
-    event SubmitTransaction(
-        address indexed owner,
-        uint indexed txIndex,
-        address indexed to,
-        uint value,
-        bytes data
-    );
-    event ConfirmTransaction(address indexed owner, uint indexed txIndex);
-    event RevokeConfirmation(address indexed owner, uint indexed txIndex);
-    event ExecuteTransaction(address indexed owner, uint indexed txIndex);
-    */
+//import {StdStorage} from "../lib/forge-std/src/Components.sol";
+import {specific_authenticate_message_params_parse, specific_deal_proposal_cbor_parse} from "./CBORParse.sol";
+
+contract Catalog {
+    uint64 public constant AUTHORIZE_MESSAGE_METHOD_NUM = 2643134072;
+
+    mapping(bytes => bool) public cidSet;
+    mapping(bytes => uint256) public cidSizes;
+    mapping(bytes => mapping(bytes => bool)) public cidProviders;
+
+    //address public owner;
     address[] public owners;
     mapping(address => bool) public isOwner;
     uint256 public numConfirmationsRequired;
 
     struct Transaction {
-        address to;
-        uint256 value;
-        bytes data;
+        //address to;
+        bytes cidraw;
+        uint256 size;
         bool executed;
         uint256 numConfirmations;
     }
 
-    // mapping from tx index => owner => bool
     mapping(uint256 => mapping(address => bool)) public isConfirmed;
-
     Transaction[] public transactions;
 
     modifier onlyOwner() {
@@ -58,7 +53,6 @@ contract MultiSigWallet {
             _numConfirmationsRequired > 0 && _numConfirmationsRequired <= _owners.length,
             "invalid number of required confirmations"
         );
-
         for (uint256 i = 0; i < _owners.length; i++) {
             address owner = _owners[i];
 
@@ -68,7 +62,6 @@ contract MultiSigWallet {
             isOwner[owner] = true;
             owners.push(owner);
         }
-
         numConfirmationsRequired = _numConfirmationsRequired;
     }
 
@@ -76,18 +69,10 @@ contract MultiSigWallet {
         //emit Deposit(msg.sender, msg.value, address(this).balance);
     }
 
-    function submitTransaction(
-        address _to,
-        uint256 _value,
-        bytes memory _data
-    ) public onlyOwner {
-        //uint txIndex = transactions.length;
-
+    function submitTransaction(bytes memory _cidraw, uint256 _size) public onlyOwner {
         transactions.push(
-            Transaction({to: _to, value: _value, data: _data, executed: false, numConfirmations: 0})
+            Transaction({cidraw: _cidraw, size: _size, executed: false, numConfirmations: 0})
         );
-
-        //emit SubmitTransaction(msg.sender, txIndex, _to, _value, _data);
     }
 
     function confirmTransaction(uint256 _txIndex)
@@ -100,8 +85,6 @@ contract MultiSigWallet {
         Transaction storage transaction = transactions[_txIndex];
         transaction.numConfirmations += 1;
         isConfirmed[_txIndex][msg.sender] = true;
-
-        //emit ConfirmTransaction(msg.sender, _txIndex);
     }
 
     function executeTransaction(uint256 _txIndex)
@@ -116,9 +99,10 @@ contract MultiSigWallet {
 
         transaction.executed = true;
 
-        (bool success, ) = transaction.to.call{value: transaction.value}(transaction.data);
-        require(success, "tx failed");
+        addCID(transaction.cidraw, transaction.size);
 
+        //(bool success, ) = transaction.to.call{value: transaction.value}(transaction.data);
+        //require(success, "tx failed");
         //emit ExecuteTransaction(msg.sender, _txIndex);
     }
 
@@ -134,8 +118,6 @@ contract MultiSigWallet {
 
         transaction.numConfirmations -= 1;
         isConfirmed[_txIndex][msg.sender] = false;
-
-        //emit RevokeConfirmation(msg.sender, _txIndex);
     }
 
     function getOwners() public view returns (address[] memory) {
@@ -150,9 +132,8 @@ contract MultiSigWallet {
         public
         view
         returns (
-            address to,
-            uint256 value,
-            bytes memory data,
+            bytes memory cidraw,
+            uint256 size,
             bool executed,
             uint256 numConfirmations
         )
@@ -160,11 +141,58 @@ contract MultiSigWallet {
         Transaction storage transaction = transactions[_txIndex];
 
         return (
-            transaction.to,
-            transaction.value,
-            transaction.data,
+            transaction.cidraw,
+            transaction.size,
             transaction.executed,
             transaction.numConfirmations
         );
+    }
+
+    function addCID(bytes memory cidraw, uint256 size) internal {
+        //require(msg.sender == owner);
+        cidSet[cidraw] = true;
+        cidSizes[cidraw] = size;
+    }
+
+    function policyOK(bytes calldata cidraw, bytes calldata provider) internal view returns (bool) {
+        bool alreadyStoring = cidProviders[cidraw][provider];
+        return !alreadyStoring;
+    }
+
+    function authorizeData(
+        bytes calldata cidraw,
+        bytes calldata provider,
+        uint256 size
+    ) internal {
+        // if (msg.sender != f05) return;
+        require(cidSet[cidraw], "cid must be added before authorizing");
+        require(cidSizes[cidraw] == size, "data size must match expected");
+        require(
+            policyOK(cidraw, provider),
+            "deal failed policy check: has provider already claimed this cid?"
+        );
+
+        cidProviders[cidraw][provider] = true;
+    }
+
+    function handle_filecoin_method(
+        uint64,
+        uint64 method,
+        bytes calldata params
+    ) public {
+        // dispatch methods
+        if (method == AUTHORIZE_MESSAGE_METHOD_NUM) {
+            bytes calldata deal_proposal_cbor_bytes = specific_authenticate_message_params_parse(
+                params
+            );
+            (
+                bytes calldata cidraw,
+                bytes calldata provider,
+                uint256 size
+            ) = specific_deal_proposal_cbor_parse(deal_proposal_cbor_bytes);
+            authorizeData(cidraw, provider, size);
+        } else {
+            revert("the filecoin method that was called is not handled");
+        }
     }
 }
