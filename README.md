@@ -1,75 +1,35 @@
-# FEVM Hardhat Kit
-
-## Cloning the Repo
-
-Open up your terminal (or command prompt) and navigate to a directory you would like to store this code on. Once there type in the following command:
-
-
+# catalog-dao
+## Deploy 
+In order to deploy to the wallaby testnet you need to make a `.env` file with your private key
 ```
-git clone https://github.com/filecoin-project/FEVM-Hardhat-Kit.git
-cd FEVM-hardhat-kit
+PRIVATE_KEY=_REPLACE_WITH_YOUR_PRIVATE_KEY_
+```
+Now to install the dependancies:
+```
 yarn install
 ```
-
-
-This will clone the hardhat kit onto your computer, switch directories into the newly installed kit, and install the dependencies the kit needs to work.
-
-
-## Get a Private Key
-
-You can get a private key from a wallet provider [such as Metamask](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key).
-
-
-## Add your Private Key as an Environment Variable
-
-Add your private key as an environment variable by running this command: 
- 
- ```
-export PRIVATE_KEY='abcdef'
+And finally to deploy
 ```
-
- \
-If you use a .env file, don't commit and push any changes to .env files that may contain sensitive information, such as a private key! If this information reaches a public GitHub repository, someone can use it to check if you have any Mainnet funds in that wallet address, and steal them!
-
-
-## Get the Deployer Address
-
-Run this command:
+hh deploy --network wallaby
 ```
-yarn hardhat get-address
-```
+Take into account that you can change the `01_deploy_data_log.js` file in order to change the members of the DAO and the number of confirmations required
+## Long DEMO
 
-The f4address is the filecoin representation of your Ethereum address. This will be needed for the faucet in the next step.
+A video demonstrating the project is available in [youtube](https://www.youtube.com/watch?v=sXZOGx0Af0A). The data in order to follow along with the video:
+1. Submit a transaction to the dao 
+ - CID: `0x000181E2039220206B86B273FF34FCE19D6B804EFF5A3F5747ADA4EAA22F1D49C01E52DDB7875B4B`
+ - size: `2048`
 
-The Ethereum address will be used otherwise.
+2. Be the SP. The market calls with a cbor and the address of the client
+ - cbor: `0x8240584c8bd82a5828000181e2039220206b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b190800f4420068420066656c6162656c0a1a0008ca0a42000a42000a42000a`
+ - provider: `0x0066`
+ - address of the client
 
+3. Verify in DatalogDAO
+ - CID: `0x000181E2039220206B86B273FF34FCE19D6B804EFF5A3F5747ADA4EAA22F1D49C01E52DDB7875B4B`
+ - provider: `0x0066`
 
-## Fund the Deployer Address
-
-Go to the [Wallaby faucet](https://wallaby.network/#faucet), and paste in the f4 address we copied in the previous step. This will send some wallaby testnet FIL to the account.
-
-
-## Deploy the SimpleCoin Contract
-
-Type in the following command in the terminal: 
- 
- ```
-yarn hardhat deploy
-```
-
-This will compile the contract and deploy it to the Wallaby network automatically!
-
-Keep note of the deployed contract address for the next step.
-
-If you read the Solidity code for SimpleCoin, you will see in the constructor our deployer account automatically gets assigned 10000 SimpleCoin when the contract is deployed.
+## Resources
+This project is based on the FEVM-Hardhat-Kit repo available [here](https://github.com/filecoin-project/FEVM-Hardhat-Kit). We also followed the guide about DataDAOs from [here](https://github.com/lotus-web3/client-contract). Really good resources for understanding FEVM and DataDAOs.
 
 
-## Read your SimpleCoin balance
-
-Type in the following command in the terminal: 
- 
- ```
-yarn hardhat get-balance --contract 'THE DEPLOYED CONTRACT ADDRESS HERE' --account 'YOUR Ethereum ADDRESS HERE'
-```
-
-The console should read that your account has 10000 SimpleCoin!
